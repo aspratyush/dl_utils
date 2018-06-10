@@ -3,9 +3,9 @@ Building keras based model for mnist for testing
 KerasModelWrapper in cleverhans
 '''
 
-import keras
-from keras.models import Sequential
-from keras.layers import Conv2D, Activation, MaxPooling2D, Flatten, Dense
+from tensorflow import keras
+from tensorflow.python.keras.models import Sequential
+from tensorflow.python.keras.layers import Conv2D, Activation, MaxPooling2D, Flatten, Dense
 
 
 def model(nb_classes=10, logits=False, input_ph=None, nb_rows=28, nb_cols=28, nb_channels=1):
