@@ -14,7 +14,7 @@ def run(model, X, Y, optimizer=None, nb_epochs=30, nb_batches=128):
     assert (model, not None), "model cannot be None!"
 
     if optimizer is None:
-        optimizer = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+        optimizer = SGD(lr=0.0009, decay=1e-5, momentum=0.9, nesterov=True)
 
     # 1. Compile the model
     model.compile(optimizer='SGD', 
@@ -49,7 +49,7 @@ def run(model, X, Y, optimizer=None, nb_epochs=30, nb_batches=128):
             )
 
     # 4b. Evaluate the model
-    model_eval = model_est.evaluate(input_fn=eval_input_fn, steps=nb_epochs*nb_batches)
+    model_eval = model_est.evaluate(input_fn=eval_input_fn)
     print(model_eval)
 
     return model_est, model_eval
