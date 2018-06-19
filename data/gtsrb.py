@@ -30,8 +30,8 @@ def load_data(data_dir=None, one_hot=False):
         Y['train'] = train['labels']
         X['test'] = test['features']
         Y['test'] = test['labels']
-        X['val'] = valid['features']
-        Y['val'] = valid['labels']
+        X['valid'] = valid['features']
+        Y['valid'] = valid['labels']
 
         # print shapes
         data_info.get_shapes(X, Y)

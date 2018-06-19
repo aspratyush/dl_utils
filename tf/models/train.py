@@ -5,21 +5,23 @@ from __future__ import print_function
 # Imports
 import tensorflow as tf
 import math
+import numpy as np
 from sklearn.utils import shuffle
 
-def run(model, X, Y, model_path = '/tmp', optimizer=None, 
+def run(model, X, Y, x_ph=None, y_ph=None, model_path='/tmp', optimizer=None, 
         nb_epochs=30, nb_batches=128, nb_rows=28, nb_cols=28, nb_channels=1, nb_classes=10):
 
-    # define the placeholders                             
-    x = tf.placeholder(tf.float32, shape=(None, nb_rows, nb_cols, nb_channels))
-    y = tf.placeholder(tf.float32, shape=(None, nb_classes))
-
+    # define the placeholders
+    if (x_ph is None):
+        x_ph = tf.placeholder(tf.float32, shape=(None, nb_rows, nb_cols, nb_channels))
+    if (y_ph is None):
+        y_ph = tf.placeholder(tf.float32, shape=(None, nb_classes))
     # get the prediction tensor
-    y_pred = model(x)
+    y_pred = model(x_ph)
 
     # 1. loss function
     with tf.name_scope('loss'):
-        cross_entropy = tf.losses.softmax_cross_entropy(y, y_pred)
+        cross_entropy = tf.losses.softmax_cross_entropy(y_ph, y_pred)
         cross_entropy = tf.reduce_mean(cross_entropy)
     
     # 2. optimizer
@@ -32,7 +34,7 @@ def run(model, X, Y, model_path = '/tmp', optimizer=None,
     
     # 3. accuracy
     with tf.name_scope('accuracy'):
-        correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y,1))
+        correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y_ph,1))
         correct_prediction = tf.cast(correct_prediction, tf.float32)
         accuracy = tf.reduce_mean(correct_prediction)
     
@@ -44,7 +46,7 @@ def run(model, X, Y, model_path = '/tmp', optimizer=None,
         sess.run(tf.global_variables_initializer())
         
         # steps
-        nb_steps = math.floor(X['train'].shape[0]/nb_batches)
+        nb_steps = math.floor(np.asarray(X['train']).shape[0]/nb_batches)
         
         X_train = X['train']
         Y_train = Y['train']
@@ -66,13 +68,13 @@ def run(model, X, Y, model_path = '/tmp', optimizer=None,
                 y_batch = Y_train[i*nb_batches:(i+1)*nb_batches]
 
                 # run the optimizer
-                sess.run(train_step, feed_dict={x:x_batch, y:y_batch})
+                sess.run(train_step, feed_dict={x_ph:x_batch, y_ph:y_batch})
             
             # 5. Validation
             # print accuracy every 10 epochs 
             if (epoch % 2 == 0):
-                val_accuracy = sess.run(accuracy, feed_dict={x: X['val'], y: Y['val']})
-                val_loss = sess.run(cross_entropy, feed_dict={x: X['val'], y: Y['val']})
+                val_accuracy = sess.run(accuracy, feed_dict={x_ph: X['valid'], y_ph: Y['valid']})
+                val_loss = sess.run(cross_entropy, feed_dict={x_ph: X['valid'], y_ph: Y['valid']})
                 print('Epoch: ', epoch, ', Val accuracy: ', val_accuracy, ', Val loss : ', val_loss)
 
         # Save the model

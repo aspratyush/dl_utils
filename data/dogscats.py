@@ -2,11 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import glob
-import matplotlib.pyplot as plt
-from . import data_info
-from .preprocessing import transforms
 
 def load_data(data_dir, one_hot=False):
     """
@@ -15,23 +11,28 @@ def load_data(data_dir, one_hot=False):
     :param one_hot : whether to one-hot encode the data
     """
 
+    X = {}
+    Y = {}
     if data_dir is not None:
-        # Training
-        classes = ['dogs', 'cats']
 
-        X = {}
-        Y = {}
-        for item in classes:
-            # get the path
-            path = data_dir + "/train/" + item + "/*.jpg"
-            
-            # get all the files
-            train_files = glob.glob(path)
-            print(path, train_files[0])
-            
-            # test with 1st image
-            img = plt.imread(train_files[0])
-            img_new = transforms.scale_min(img, 224)
+        modes = ['train', 'valid']
+        classes = ['cats', 'dogs']
 
-    return img, img_new
+    
+        for mode in modes:
+            X[mode] = []
+            Y[mode] = []
+    
+            for tr_class in classes:
+                print('-----------', mode, tr_class, '------------')
+                file_path = data_dir + '/' + mode + '/' + tr_class + '/*.jpg'
+                print(file_path)
+                files = glob.glob(file_path)
+                X[mode] += (files)
+                Y[mode] += ([classes.index(tr_class)]*len(files))
+                print(len(X[mode]), len(Y[mode]))
 
+    else:
+        print('data_dir is None...')
+        
+    return X, Y

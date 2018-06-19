@@ -24,7 +24,7 @@ def run(model, X, Y, optimizer=None, nb_epochs=30, nb_batches=128):
             Y['train'],
             epochs=nb_epochs,
             batch_size=nb_batches,
-            validation_data=(X['val'], Y['val']))
+            validation_data=(X['valid'], Y['valid']))
 
     # Evaluate the model on test data
     score = model.evaluate(X['test'], Y['test'], batch_size=nb_batches)

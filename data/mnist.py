@@ -33,8 +33,8 @@ def load_data(data_dir='/tmp', one_hot=False):
     Y['train'] = mnist.train.labels
     X['test'] = mnist.test.images
     Y['test'] = mnist.test.labels
-    X['val'] = mnist.validation.images
-    Y['val'] = mnist.validation.labels
+    X['valid'] = mnist.validation.images
+    Y['valid'] = mnist.validation.labels
 
     # print shapes
     data_info.get_shapes(X, Y)
