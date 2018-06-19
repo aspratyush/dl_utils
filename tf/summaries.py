@@ -11,11 +11,20 @@ def create(data_dir='/tmp'):
     """
     create summary writer
     """
+    tf.summary.FileWriterCache.clear()
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(data_dir + '/train', sess.graph)
     test_writer = tf.summary.FileWriter(data_dir + '/test')
 
-    return [merged, train_writer, test_writer]
+    return merged, train_writer, test_writer
+
+
+def close(train_writer, test_writer):
+    """
+    Closing the summaries file
+    """
+    train_writer.close()
+    test_writer.close()
 
 
 def variable_summaries(var):
@@ -31,3 +40,17 @@ def variable_summaries(var):
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
+
+
+def scalar_summaries(x, name):
+    """
+    Attach scalar summary to a tensor with name=name
+    """
+    tf.summary.scalar(name, x)
+
+
+def image_summaries(x, name):
+    """
+    Attach image summary to a image tensor with name=name
+    """
+    tf.summary.image(name, x)
