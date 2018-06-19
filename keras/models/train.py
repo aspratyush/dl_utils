@@ -5,6 +5,11 @@ from __future__ import print_function
 # Imports
 from keras.optimizers import SGD
 
+#model, X, Y_oh, x_ph=x_ph, y_ph=y_ph, sess=sess, 
+#            model_path='./saved_model/lenet_dogscats',nb_epochs=NB_EPOCHS, 
+#            nb_batches=NB_BATCHES, nb_rows=NB_ROWS, nb_cols=NB_COLS, 
+#            nb_channels=NB_CHANNELS, nb_classes=NB_CLASSES)
+
 def run(model, X, Y, optimizer=None, nb_epochs=30, nb_batches=128):
     
     if optimizer==None:

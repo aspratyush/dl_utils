@@ -17,11 +17,11 @@ from dl_utils.keras.models import lenet_tf_keras
 
 # Training
 ## keras training
-#from dl_utils.keras.models import train
+from dl_utils.keras.models import train
 ## tf estimator training
 #from dl_utils.tf.estimators import keras_estimator
 ## tf training
-from dl_utils.tf.models import train
+#from dl_utils.tf.models import train
 
 # Log level
 tf.logging.set_verbosity(tf.logging.DEBUG)
@@ -33,14 +33,20 @@ NB_CLASSES = 2
 NB_ROWS = 224
 NB_COLS = 224
 NB_CHANNELS = 3
-
+sess = tf.Session()
 
 def add_custom_layers(x):
+    # read the image
     img_path = tf.read_file(tf.squeeze(tf.cast(x, tf.string)))
     img_u8 = tf.image.decode_jpeg(img_path, channels=3)
+    # convert to float32
     img = tf.image.convert_image_dtype(img_u8, dtype=tf.float32)
+    # resize
     img_cropped = tf.image.resize_image_with_crop_or_pad(img, 224, 224)
+    # normalize
+    img_cropped = (img_cropped - 128.)/128.
     #img_cropped = tf.expand_dims(img_cropped, 0)
+
     return img_cropped
 
 def resize_images(x):
@@ -51,7 +57,7 @@ def main():
     
     x_ph = tf.placeholder(tf.string, shape=None)
     y_ph = tf.placeholder(tf.float32, shape=(None,NB_CLASSES))
-
+    
     # 1. Loading the data
     print('Loading data...')
     file_path = '/mnt/data/Personal/coursera/DL/data/dogscats/sample'
@@ -83,8 +89,10 @@ def main():
     #keras_estimator.run(model, X, Y_oh, nb_epochs=30, nb_batches=128)
 
     ## c. tf
-    train.run(model, X, Y_oh, x_ph=x_ph, y_ph=y_ph, model_path='./saved_model/lenet_dogscats',nb_epochs=NB_EPOCHS, nb_batches=NB_BATCHES, nb_rows=NB_ROWS, 
-            nb_cols=NB_COLS, nb_channels=NB_CHANNELS, nb_classes=NB_CLASSES)
+    train.run(model, X, Y_oh, x_ph=x_ph, y_ph=y_ph, sess=sess, 
+            model_path='./saved_model/lenet_dogscats',nb_epochs=NB_EPOCHS, 
+            nb_batches=NB_BATCHES, nb_rows=NB_ROWS, nb_cols=NB_COLS, 
+            nb_channels=NB_CHANNELS, nb_classes=NB_CLASSES)
 
 if __name__ == "__main__":
   #tf.app.run()
