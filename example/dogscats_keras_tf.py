@@ -17,11 +17,11 @@ from dl_utils.keras.models import lenet_tf_keras
 
 # Training
 ## keras training
-from dl_utils.keras.models import train
+#from dl_utils.keras.models import train
 ## tf estimator training
 #from dl_utils.tf.estimators import keras_estimator
 ## tf training
-#from dl_utils.tf.models import train
+from dl_utils.tf.models import train
 
 # Log level
 tf.logging.set_verbosity(tf.logging.DEBUG)
@@ -93,6 +93,9 @@ def main():
             model_path='./saved_model/lenet_dogscats',nb_epochs=NB_EPOCHS, 
             nb_batches=NB_BATCHES, nb_rows=NB_ROWS, nb_cols=NB_COLS, 
             nb_channels=NB_CHANNELS, nb_classes=NB_CLASSES)
+
+    print('Closing the session')
+    sess.close()
 
 if __name__ == "__main__":
   #tf.app.run()
