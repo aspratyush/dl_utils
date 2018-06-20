@@ -8,6 +8,7 @@ import tensorflow as tf
 from dl_utils.data import dogscats
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import Input, Lambda
+import matplotlib.pyplot as plt
 
 # Model
 ## lenet_keras for keras API
@@ -38,25 +39,24 @@ sess = tf.Session()
 def add_custom_layers(x):
     # read the image
     img_path = tf.read_file(tf.squeeze(tf.cast(x, tf.string)))
-    img_u8 = tf.image.decode_jpeg(img_path, channels=3)
+    img_u8 = tf.image.decode_jpeg(img_path, channels=NB_CHANNELS)
     # convert to float32
     img = tf.image.convert_image_dtype(img_u8, dtype=tf.float32)
     # resize
-    img_cropped = tf.image.resize_image_with_crop_or_pad(img, 224, 224)
-    # normalize
-    img_cropped = (img_cropped - 128.)/128.
-    #img_cropped = tf.expand_dims(img_cropped, 0)
+    img_cropped = tf.image.resize_image_with_crop_or_pad(img, NB_ROWS, NB_COLS)
+    #img_cropped = tf.image.resize_images(img, [NB_ROWS, NB_COLS, NB_CHANNELS])
 
     return img_cropped
 
 def resize_images(x):
     return tf.map_fn(add_custom_layers, x, dtype=tf.float32)
 
+
 # Our application logic will be added here
 def main():
     
-    x_ph = tf.placeholder(tf.string, shape=None)
-    y_ph = tf.placeholder(tf.float32, shape=(None,NB_CLASSES))
+    x = tf.placeholder(tf.string, shape=(None,))
+    y = tf.placeholder(tf.float32, shape=(None,NB_CLASSES))
     
     # 1. Loading the data
     print('Loading data...')
@@ -65,8 +65,9 @@ def main():
 
     # 2. Create the model
     # 2a. Lambda layer
-    in_data = Input(batch_shape=(None,1), dtype=tf.string, name='input')
-    img_cropped = Lambda(resize_images, output_shape=(None, 224, 224, 3))(in_data)
+    #in_data = Input(shape=(None,), dtype=tf.string, name='input')
+    in_data = Input(tensor=x)
+    img_cropped = Lambda(resize_images, output_shape=(None, NB_ROWS, NB_COLS, NB_CHANNELS))(in_data)
     
     # 2b. LeNet model
     model1 = lenet_tf_keras.model(nb_classes=NB_CLASSES, nb_rows=NB_ROWS, nb_cols=NB_COLS, nb_channels=NB_CHANNELS) 
@@ -88,8 +89,18 @@ def main():
     ## b. estimator
     #keras_estimator.run(model, X, Y_oh, nb_epochs=30, nb_batches=128)
 
+    '''
+    print('Get image')
+    print(X['train'][0])
+    im_c = sess.run(img_cropped, feed_dict={x:X['valid']})
+    plt.figure()
+    for i in im_c:
+        plt.imshow(i)
+        plt.show()
+    '''
+
     ## c. tf
-    train.run(model, X, Y_oh, x_ph=x_ph, y_ph=y_ph, sess=sess, 
+    train.run(model, X, Y_oh, x_ph=x, y_ph=y, sess=sess, 
             model_path='./saved_model/lenet_dogscats',nb_epochs=NB_EPOCHS, 
             nb_batches=NB_BATCHES, nb_rows=NB_ROWS, nb_cols=NB_COLS, 
             nb_channels=NB_CHANNELS, nb_classes=NB_CLASSES)
