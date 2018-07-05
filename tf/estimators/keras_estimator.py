@@ -81,7 +81,7 @@ def run_from_generator(
     dir_path = os.path.join(os.getcwd(), model_dir)
     print("Model path chosen : ", dir_path)
     if (not os.path.exists(dir_path)):
-        os.mkdirs(dir_path)
+        os.mkdir(dir_path)
 
     print("Creating estimator...")
     est = tf.keras.estimator.model_to_estimator(
@@ -102,6 +102,6 @@ def run_from_generator(
     #est.train(input_fn=lambda: input_func(input_func_dict),
     #        steps=None)
     #
-    #est.evalute(input_fn=lambda: input_func(input_func_dict))
+    #est.evalute(input_fn=lambda: input_func(eval_func_dict))
 
     return est
