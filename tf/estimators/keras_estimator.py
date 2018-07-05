@@ -57,7 +57,7 @@ def run(model, X, Y, optimizer=None, nb_epochs=30, nb_batches=128):
 
 def run_from_generator(
         model, input_func=None, input_func_dict=None,
-        eval_fn_dict=None, nb_epochs=10, optimizer=None, model_dir=None):
+        eval_func_dict=None, nb_epochs=10, optimizer=None, model_dir=None):
     """
     Overloaded function to create an estimator using tf.data.Dataset
     :param model : uncompiled keras model
@@ -91,18 +91,17 @@ def run_from_generator(
     print("Training...")
 
     # training spec
-    #train_spec = tf.estimator.TrainSpec(input_fn=lambda: input_func(input_func_dict),
-    #        max_steps=nb_epochs*input_func_dict['nb_batches'])
+    train_spec = tf.estimator.TrainSpec(input_fn=lambda: input_func(input_func_dict),
+            max_steps=500)
 
     # evaluation spec
-    #eval_spec = tf.estimator.EvalSpec(input_fn=lambda: input_func(input_func_dict))
-    #    eval_data_dir, modes=modes, classes=classes, nb_batches=1,
-    #    nb_buffers=nb_buffers, nb_repeats=1, one_hot=one_hot))
+    eval_spec = tf.estimator.EvalSpec(input_fn=lambda: input_func(eval_func_dict))
 
     # Run the training
-    #model_est = tf.estimator.train_and_evaluate(est, train_spec, eval_spec)
-    est.train(input_fn=lambda: input_func(input_func_dict),
-            steps=None)
-
+    model_est = tf.estimator.train_and_evaluate(est, train_spec, eval_spec)
+    #est.train(input_fn=lambda: input_func(input_func_dict),
+    #        steps=None)
+    #
+    #est.evalute(input_fn=lambda: input_func(input_func_dict))
 
     return est

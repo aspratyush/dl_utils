@@ -13,7 +13,6 @@ nb_rows, nb_cols, nb_channels = 224, 224, 3
 
 # input_fn_dict
 input_fn_dict = {}
-eval_fn_dict = {}
 input_fn_dict['data_dir'] = '/mnt/data/Personal/coursera/DL/data/dogscats/sample'
 input_fn_dict['modes'] = ['train']
 input_fn_dict['classes'] = ['cats', 'dogs']
@@ -26,10 +25,14 @@ input_fn_dict['nb_channels'] = nb_channels
 input_fn_dict['one_hot'] = True
 input_fn_dict['input_name'] = 'input_1'
 input_fn_dict['eval_data_dir'] = '/mnt/data/Personal/coursera/DL/data/dogscats/sample'
-eval_fn_dict['data_dir'] = input_fn_dict
+
+eval_fn_dict = input_fn_dict.copy()
+eval_fn_dict['data_dir'] = '/mnt/data/Personal/coursera/DL/data/dogscats/sample'
+eval_fn_dict['modes'] = ['valid']
 
 # Log level
 tf.logging.set_verbosity(tf.logging.DEBUG)
+
 
 def main():
 
@@ -41,21 +44,14 @@ def main():
     model.summary()
 
     input_fn_dict['input_name'] = model.input_names[0]
+    eval_fn_dict['input_name'] = model.input_names[0]
 
     # 2. run the estimator
     model_est = est_keras.run_from_generator(
             model, input_func=dg.get_img_generator, input_func_dict=input_fn_dict,
-            eval_fn_dict=eval_fn_dict, nb_epochs=10, optimizer=None, model_dir='lenet')
+            eval_func_dict=eval_fn_dict, nb_epochs=10, optimizer=None, model_dir='lenet')
 
-
+    print('model_est : ', model_est)
 
 if __name__ == '__main__':
     main()
-
-
-#model.fit_generator(
-#        train_generator,
-#        steps_per_epoch=nb_train_samples // batch_size,
-#        epochs=epochs,
-#        validation_data=validation_generator,
-#        validation_steps=nb_validation_samples // batch_size)
