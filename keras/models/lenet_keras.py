@@ -28,10 +28,10 @@ def model(nb_classes=10, logits=False, input_ph=None, nb_rows=28, nb_cols=28, nb
     # check if logits need to be returned
     if logits == True:
         logits_tensor = model(input_ph)
-    
+
     # add softmax
     model.add(Activation('softmax'))
-    
+
     if logits == True:
         return model, logits_tensor
     else:
