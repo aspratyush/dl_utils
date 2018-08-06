@@ -46,9 +46,9 @@ def load_data(one_hot=False, nb_classes=10):
 
 def build_model(use_softmax=False):
     model = Sequential()
-    model.add(Dense(10, input_shape=(None, 784), activation='relu'))
-    #model.add(Dense(84, activation='relu'))
-    #model.add(Dense(10))
+    model.add(Dense(256, input_shape=(None, 784), activation='relu'))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(10))
 
     # softmax
     if use_softmax:
@@ -109,11 +109,10 @@ def main():
                 print("Epoch:", '%04d' % (epoch+1),
                         "cost={:.9f}".format(avg_cost),
                         "accuracy=", acc)
-                layer_weights = model.layers[0].get_weights()[0]
-                plot_weights(layer_weights, (28,28), idx=epoch)
+                #layer_weights = model.layers[2].get_weights()[0]
+                #plot_weights(layer_weights, (10,10), idx=epoch)
 
         print("Optimization finished...")
-        plt.show()
         ## 8. Test accuracy
         #acc = sess.run(accuracy, feed_dict={x:x_test, y:y_test})
         #print("Test accuracy = ", acc)
