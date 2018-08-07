@@ -7,7 +7,7 @@ from tensorflow.keras.layers import Dropout, Reshape, Flatten
 from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
 from keras.utils import plot_model
-from dl_utils.tf.plot_weights import plot_weights
+from dl_utils.tf.plot_layer_tensor import plot_layer_tensor
 
 # CUDA GPU
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
@@ -49,7 +49,7 @@ def load_data(one_hot=False, nb_classes=10):
 def build_model(use_softmax=False, nb_rows=28, nb_cols=28, nb_channels=1):
     model = Sequential()
 
-    layers = [Reshape((nb_rows, nb_cols, nb_channels), input_shape=(1, 784)),
+    layers = [Reshape((nb_rows, nb_cols, nb_channels), input_shape=(784,)),
             Conv2D(16, (5, 5), activation='relu'),
             MaxPooling2D(pool_size=(2,2), strides=(2,2)),
             Conv2D(36, (5, 5), activation='relu'),
@@ -84,6 +84,10 @@ def main():
     # plot the model
     plot_model(model)
 
+    # get tensor corresponding to layer=1
+    in_tensor = model.layers[0].input
+    out_tensor = model.layers[4].output
+
     # 3. Loss and train_step
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=y)
     loss = tf.reduce_sum(cross_entropy)
@@ -96,6 +100,10 @@ def main():
 
     nb_epochs = 100
     nb_batches = 256
+    
+    # Create figure to be used by plotting functions
+    plt.ion()
+
     # 5. run the training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -112,20 +120,23 @@ def main():
             # get batch
             x_batch, y_batch = x_train[idx_start:idx_end,:], y_train[idx_start:idx_end,:]
             _, c = sess.run([train_step, loss], feed_dict={x:x_batch, y:y_batch})
-
-        avg_cost += c/nb_batches
+            avg_cost += c/nb_batches
+        
+        out = sess.run(out_tensor, feed_dict={in_tensor:x_batch})
         acc = sess.run(accuracy, feed_dict={x:x_validation, y:y_validation})
         avg_cost_list.append(avg_cost)
         acc_list.append(acc)
         if epoch % 10 == 0:
-                        print("Epoch:", '%04d' % (epoch+1),
+            print("Epoch:", '%04d' % (epoch+1),
                     "Loss={:.9f}".format(avg_cost),
                     "Validation={:2.9f}".format(acc))
+            plot_layer_tensor(out)
 
     print("Optimization finished...")
 
     # close the session
     sess.close()
+    plt.show()
 
     return avg_cost_list, acc_list
 
