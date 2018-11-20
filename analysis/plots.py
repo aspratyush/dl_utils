@@ -67,3 +67,12 @@ def plot_confusion_matrix(y_test, y_pred,
         print(class_report)
 
     return cm, class_report
+
+
+def roc_and_pr_curves(y_test, y_pred, ax=ax):
+    # 1. precision-recall curve
+    precision, recall, _ = precision_recall_curve(y_test, y_pred)
+    # 2. roc curve
+    tpr, fpr, _ = roc_curve(y_test, y_pred)
+
+    return precision, recall, tpr, fpr
