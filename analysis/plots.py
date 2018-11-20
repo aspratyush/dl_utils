@@ -3,7 +3,8 @@ from __future__ import absolute_import, division, print_function
 import seaborn as sns
 import numpy as np
 from sklearn.metrics import confusion_matrix, classification_report
-from sklearn.metrics import roc_curve, auc, precision_recall_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
+from sklearn.metrics import f1_score, auc
 
 # set style
 sns.set(style='whitegrid')
@@ -60,19 +61,23 @@ def plot_confusion_matrix(y_test, y_pred,
         cm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
     # 3. build the confusion matrix heatmap
     sns.heatmap(cm, cmap=cmap, annot=True, ax=ax)
-    # 4. print reports?
-    class_report = classification_report(y_test, y_pred)
-    if report:
-        print(cm)
-        print(class_report)
-
-    return cm, class_report
 
 
-def roc_and_pr_curves(y_test, y_pred, ax=ax):
+def roc_pr_f1(y_test, y_pred):
+    '''
+        Get the PR, F1 and ROC-AUC data.
+        params:
+            y_test : test labels
+            y_pred : predicted labels
+    '''
     # 1. precision-recall curve
     precision, recall, _ = precision_recall_curve(y_test, y_pred)
     # 2. roc curve
     tpr, fpr, _ = roc_curve(y_test, y_pred)
+    auc = auc(fpr, tpr)
+    # 3. f1 score
+    f1_score = f1_score(y_test, y_pred)
+    # 4. report
+    class_report = classification_report(y_test, y_pred)
 
-    return precision, recall, tpr, fpr
+    return precision, recall, tpr, fpr, auc, f1_score, class_report
