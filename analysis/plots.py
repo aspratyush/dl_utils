@@ -11,8 +11,8 @@ sns.set(style='whitegrid')
 sns.set_context('notebook')
 
 
-def plot_histogram(data, color='b', alpha=1.,
-                   ax=ax, norm=False, kde=False,
+def plot_histogram(data, color='b', alpha=1,
+                   ax=None, norm=False, kde=False,
                    rug=False, label=None):
     '''
         Plot the histogram of the provided data
@@ -43,24 +43,36 @@ def plot_histogram(data, color='b', alpha=1.,
 def plot_confusion_matrix(y_test, y_pred,
                           cmap='coolwarm_r',
                           normalize=False,
-                          report=False, ax=ax):
+                          report=False, ax1=None,
+                          ax2=None):
     '''
         Plot the confusion matrix and print reports
         params:
             y_test : test labels
-            y_pred : predictions
+            y_pred : prediction labels
             cmap : colour map to use
             normalize : whether to normalize the data
             report : whether to cerate report
             ax : axis on which to plot
     '''
     # 1. get the confusion matrix
+    # print('y_test: ', y_test)
+    # print('y_pred: ', y_pred)
+    # if len(y_test[0] > 1):
+    #    y_test = y_test[:,0]
+    #    y_pred = y_pred[:, 0]
     cm = confusion_matrix(y_test, y_pred)
-    # 2. do we need normalization?
-    if normalize:
-        cm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
+    # 2. Do normalization as well
+    cm_norm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
     # 3. build the confusion matrix heatmap
-    sns.heatmap(cm, cmap=cmap, annot=True, ax=ax)
+    sns.heatmap(cm, cmap=cmap, annot=True, ax=ax1)
+    sns.heatmap(cm_norm, cmap=cmap, annot=True, ax=ax2)
+    # 4. f1 score
+    f1 = f1_score(y_test, y_pred)
+    # 5. report
+    class_report = classification_report(y_test, y_pred)
+
+    return f1, class_report
 
 
 def roc_pr_f1(y_test, y_pred):
@@ -68,16 +80,15 @@ def roc_pr_f1(y_test, y_pred):
         Get the PR, F1 and ROC-AUC data.
         params:
             y_test : test labels
-            y_pred : predicted labels
+            y_pred : predicted probabilities
     '''
+    # if len(y_test[0] > 1):
+    #    y_test = y_test[:,0]
+    #    y_pred = y_pred[:,0]
     # 1. precision-recall curve
-    precision, recall, _ = precision_recall_curve(y_test, y_pred)
-    # 2. roc curve
-    tpr, fpr, _ = roc_curve(y_test, y_pred)
-    auc = auc(fpr, tpr)
-    # 3. f1 score
-    f1_score = f1_score(y_test, y_pred)
-    # 4. report
-    class_report = classification_report(y_test, y_pred)
+    prec, rec, _ = precision_recall_curve(y_test, y_pred)
+    # 2. roc curve and auc_score
+    fpr, tpr, thr = roc_curve(y_test, y_pred)
+    auc_score = auc(fpr, tpr)
 
-    return precision, recall, tpr, fpr, auc, f1_score, class_report
+    return prec, rec, tpr, fpr, thr, auc_score
