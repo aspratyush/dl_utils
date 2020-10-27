@@ -15,3 +15,11 @@
 - GCN : approx. large `k x k` kernels by sum of `1 x k + k x 1` and `k x 1` and `1 x k` convolutions.
 - Also uses a Boundary Refinement block.
 - ResNet with dilated convs used as encoder decoder.
+
+### Rethinking the Value of Labels for Improving Class-Imbalanced Learning (NeurIPS 2020)
+- paper : https://arxiv.org/pdf/2006.07529.pdf
+- video : https://youtu.be/XltXZ3OZvyI
+- Semi-supervised and self-supervised learning for class imbalanced problem
+
+### MS-TCN: Multi-Stage Temporal Convolutional Network for Action Segmentation (CVPR 2019)
+- paper : https://arxiv.org/pdf/1903.01945.pdf

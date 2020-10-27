@@ -4,11 +4,11 @@ from __future__ import print_function
 
 import numpy as np
 from . import data_info
-import pickle                                                                    
-import numpy as np                                                               
-                                                                                 
-                                                                                 
-# Load pickled data                                                              
+import pickle
+import numpy as np
+
+
+# Load pickled data
 def load_data(data_dir=None, one_hot=False):
     """
     Load and preprocess GSTRB dataset
@@ -16,13 +16,13 @@ def load_data(data_dir=None, one_hot=False):
              testing data and testing labels.
     """
     if data_dir is not None:
-        with open(data_dir + '/train.p', mode='rb') as f:                                    
-            train = pickle.load(f)                                                   
-        with open(data_dir + '/valid.p', mode='rb') as f:                                  
-            valid = pickle.load(f)                                                   
-        with open(data_dir + '/test.p', mode='rb') as f:                                     
-            test = pickle.load(f)                                                    
-                                                                                 
+        with open(data_dir + '/train.p', mode='rb') as f:
+            train = pickle.load(f)
+        with open(data_dir + '/valid.p', mode='rb') as f:
+            valid = pickle.load(f)
+        with open(data_dir + '/test.p', mode='rb') as f:
+            test = pickle.load(f)
+
         X = {}
         Y = {}
         # split into train - test - validation
