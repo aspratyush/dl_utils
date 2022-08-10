@@ -39,3 +39,51 @@
 - `raw_ops` do not have a gradient implemented, and will throw and error.
 - If backprop is needed, implement the gradient and register using `tf.RegisterGradient` 
 - link: https://www.tensorflow.org/guide/autodiff#no_gradient_registered
+
+
+## TF Graph
+
+- `tf.Graph` is a data structure that contains a set of `tf.Operations` (units of compute), and `tf.Tensor` objects (units of data that flows between ops)
+- Since this is a data structure, it allows for portability across platforms.
+- Graph optimization library (Grappler) : https://www.tensorflow.org/guide/graph_optimization
+
+#### `tf.function`
+- `tf.function` takes a regular Py function, and returns a TF `Function`
+- top-level function will cause graph conversion for all inner functions.
+- Process followed:
+  - Trace Py code
+  - convert to graph code
+  - link: https://www.tensorflow.org/guide/function
+- `tf.autograph` used to convert Py code into graph code.
+  - link: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/autograph/g3doc/reference/index.md
+  - `tf.autograph.to_code(py_function)` to view the converted Py code
+  - Show actual graph : `py_function.get_concrete_function(tf.constant(1)).graph.as_graph_def()`
+  - 1 graph per `input_signature`, and hence is polymorphic - https://www.tensorflow.org/guide/intro_to_graphs#polymorphism_one_function_many_graphs
+  - show all the graphs : `py_function.pretty_printed_concrete_signatures()`
+- Use `tf.config.run_functions_eagerly(True)` to verify if Function is working correctly.
+    - this turns off Function's ability to create and run graphs
+- `tf.print` can be used in both Eager and Function mode. `print` will be called only once when tracing happens.
+- New Python arguments always trigger the creation of a new graph.
+- **NOTE**: Only needed operations are run during graph execution, and an error is not raised. Do not rely on an error being raised while executing a graph.
+
+
+#### `tf.Module`
+- `Module`   
+     |-------> `layers.Layer` : use `call()`   
+     |-------> `keras.Model` : use `call()`  
+     |-------> `submodules` : use `__call__`
+  - submodules (subclasses) can be queried using : `model.submodules`
+  - variables : `model.variables`, trainable_variables : `model.trainable_variables`
+  - Overriding `tf.keras.Model` is a very Pythonic approach to building TensorFlow models.
+  - link : https://www.tensorflow.org/guide/intro_to_modules#defining_models_and_layers_in_tensorflow
+
+- Saving/Restoring the model using checkpoint
+  - `checkpt = tf.train.Checkpoint(model); checkpt.write(path)` creates a checkpoint of the model.
+  - `checkpt = tf.train.Checkpoint(model); checkpt.restore(path)` restores from a checkpoint.
+  - helper class : `tf.checkpoint.CheckpointManager`
+  - - link : https://www.tensorflow.org/guide/checkpoint
+
+- Saving/Loading using SavedModel format (preferred)
+  - `tf.saved_model.save(model, "path")`
+  - contains both the graph (`.pb` file) and weights (in `variables/`).
+  - `tf.saved_model.load("path")` loads the graph without code.
