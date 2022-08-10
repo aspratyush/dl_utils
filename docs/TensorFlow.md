@@ -1,11 +1,13 @@
 ## Debugging
 
-### Device placement
+#### Device placement
 - Turn on device placement logging : `tf.debugging.set_log_device_placement(True/False)`
 - link : https://www.tensorflow.org/api_docs/python/tf/debugging/set_log_device_placement
 
 
-### Automatic differentiation
+## Automatic differentiation
+
+#### Gradients for `tf.Variables`
 - `tf.GradientTape.gradient(target, sources)` computes the `d_target/d_sources`
 - accepts single or nested source.
   - supported nest types include a list and a dictionary
