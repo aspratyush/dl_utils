@@ -65,6 +65,7 @@
 - `tf.print` can be used in both Eager and Function mode. `print` will be called only once when tracing happens.
 - New Python arguments always trigger the creation of a new graph.
 - **NOTE**: Only needed operations are run during graph execution, and an error is not raised. Do not rely on an error being raised while executing a graph.
+- better performance : https://www.tensorflow.org/guide/function
 
 
 #### `tf.Module`
@@ -83,7 +84,87 @@
   - helper class : `tf.checkpoint.CheckpointManager`
   - - link : https://www.tensorflow.org/guide/checkpoint
 
-- Saving/Loading using SavedModel format (preferred)
+- Saving/Loading using SavedModel format (preferred#1)
   - `tf.saved_model.save(model, "path")`
   - contains both the graph (`.pb` file) and weights (in `variables/`).
   - `tf.saved_model.load("path")` loads the graph without code.
+
+- Saving/Loading using keras APIs (preferred#2)
+  - - `tf.keras.models.save()` : saves model arch, weights, optimizer state and args passed to compile.
+  - enables restarting training from the last point
+  - `tf.keras.models.load_model()` : loadd all saved contents from the model.
+
+
+### Ops
+
+#### Reshape
+- `tf.reshape` is fast since a new Tensor is created pointing to same memory.
+- TF uses row-major indexing
+    - link : https://www.tensorflow.org/guide/tensor#manipulating_shapes
+#### String
+- `tf.string` is byte type, not a unicode string.
+- working with Unicode text : https://www.tensorflow.org/text/guide/unicode
+- call `tf.io.decode_` apis to convert byte strings to numbers.
+
+
+## Keras Model
+- `Sequential` model : 
+  - 1 I/P Tensor --> stack of layers --> 1 O/P Tensor
+  - not appropriate for non-linear topology (residual / multi-branch / multi i/o).
+  - weights are available once I/P shape is known
+- custom training : https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
+
+- `Functional` model:
+  - can handle models with non-linear topology, shared layers, and even multiple inputs or outputs.
+  - can re-use sub-graphs in multiple models.
+- models can be nested. models are callable, similar to layers(link : https://www.tensorflow.org/guide/keras/functional#all_models_are_callable_just_like_layers)
+- supports nested loss (list / dict)
+
+
+### extract features
+```
+feature_extractor = keras.Model(
+    inputs=initial_model.inputs,
+    outputs=[layer.output for layer in initial_model.layers],
+)
+```
+OR
+```
+feature_extractor = keras.Model(
+    inputs=initial_model.inputs,
+    outputs=initial_model.get_layer(name="my_intermediate_layer").output,
+)
+```
+
+### Custom loss
+- link: https://www.tensorflow.org/guide/keras/train_and_evaluate#custom_losses
+#### Method#1
+- define a function that accepts a batch of data, and follows this pattern:   
+```
+def custom_loss(y_true, y_pred):
+  return ...
+```
+
+#### Method#2 - with params
+- if extra params are needed, best way is to subclass `tf.keras.losses.Loss`
+- pass params in `__init__`, and implement `call()`
+```
+class CustomMSE(keras.losses.Loss):
+    def __init__(self, regularization_factor=0.1, name="custom_mse"):
+        super().__init__(name=name)
+        self.regularization_factor = regularization_factor
+
+    def call(self, y_true, y_pred):
+        mse = tf.math.reduce_mean(tf.square(y_true - y_pred))
+        reg = tf.math.reduce_mean(tf.square(0.5 - y_pred))
+        return mse + reg * self.regularization_factor
+```
+
+#### Method#3 - `self.add_loss()` 
+- add in `call()` or add to model when using functional API. 
+
+
+### Custom Metrics
+- link: https://www.tensorflow.org/guide/keras/train_and_evaluate#custom_metrics
+- subclass `tf.keras.metrics.Metric`, and implement `__init__`, `reset_state`, `result` and `update_state`
+- another option is to use `self.add_metric()`, or add it to the model in functional API.
