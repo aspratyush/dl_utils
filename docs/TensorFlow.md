@@ -119,9 +119,23 @@
   - can re-use sub-graphs in multiple models.
 - models can be nested. models are callable, similar to layers(link : https://www.tensorflow.org/guide/keras/functional#all_models_are_callable_just_like_layers)
 - supports nested loss (list / dict)
+  - multi input multi output example : https://www.tensorflow.org/guide/keras/train_and_evaluate#passing_data_to_multi-input_multi-output_models
 
+-  Custom model/layer handling
+   -  Add the following member functions.
+```
+def get_config(self):
+    return {"hidden_units": self.hidden_units}
 
-### extract features
+@classmethod
+def from_config(cls, config):
+    return cls(**config)
+```
+
+- Custom functions handling
+  - Need it defined.
+
+### Extract features
 ```
 feature_extractor = keras.Model(
     inputs=initial_model.inputs,
@@ -161,10 +175,118 @@ class CustomMSE(keras.losses.Loss):
 ```
 
 #### Method#3 - `self.add_loss()` 
-- add in `call()` or add to model when using functional API. 
+- add in `call()` or add to model when using functional API.
+- useful when loss is based on internal states of a subclassed layer / model (e.g. : KL divergence).
+- link: https://www.tensorflow.org/guide/keras/custom_layers_and_models#putting_it_all_together_an_end-to-end_example
 
 
 ### Custom Metrics
 - link: https://www.tensorflow.org/guide/keras/train_and_evaluate#custom_metrics
 - subclass `tf.keras.metrics.Metric`, and implement `__init__`, `reset_state`, `result` and `update_state`
 - another option is to use `self.add_metric()`, or add it to the model in functional API.
+
+
+### Data Pipelines
+
+#### Method 1 : `np.array`
+- good for small datasets
+
+#### Method 2 : `tf.data.Dataset`
+- good for wide range of data especially when a lot of Py preprocessing is not needed.
+
+#### Method 3 : subclass `keras.utils.Sequence`
+- link : https://www.tensorflow.org/guide/keras/train_and_evaluate#using_a_kerasutilssequence_object_as_input
+- good for large data which need many Py side pre-processing.
+- works well with multiprocessing, can be shuffled.
+- subclass needs to implement `__getitem__` and `__len__`.
+  - `__len__` : return `number of items/batch_size` (i.e., `num_steps_per_epoch`)
+  - `__getitem__` : return idx based data
+  - `on_epoch_end` : OPTIONAL. Could be used to do post epoch handling.
+```
+class CIFAR10Sequence(tf.keras.utils.Sequence):
+    def __init__(self, filenames, labels, batch_size):
+        self.filenames, self.labels = filenames, labels
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return int(np.ceil(len(self.filenames) / float(self.batch_size)))
+
+    def __getitem__(self, idx):
+        batch_x = self.filenames[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_y = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]
+        return np.array([
+            resize(imread(filename), (200, 200))
+               for filename in batch_x]), np.array(batch_y)
+```
+
+### Sample / Class Weights
+- these modulate the contribution of each sample / class in overall loss.
+- by default, sample weight is dependant on data frequency in the dataset.
+- `class_weight` accepts a dict with class weights, pass to `model.fit()`.
+  - used to balance classes without resampling / give more importance to one class.
+- `sample_weight` is more fine-grained, giving per sample weights.
+  - When using `tf.data` or generator, yield `(X,y,sample_weights)`
+  - can even mask entire class if weights used are 0 and 1.
+
+### Loss weight
+- used to give weighted importance to loss terms in multi-output graphs.
+- sometimes, some o/ps can have `None` loss. These heads get used for prediction but not for training.
+
+
+### Callbacks
+- link: https://www.tensorflow.org/guide/keras/custom_callback
+- `ModelCheckpoint` can be used to store / restore models.
+```
+import os
+
+# Prepare a directory to store all the checkpoints.
+checkpoint_dir = "./ckpt"
+if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+
+
+def make_or_restore_model():
+    # Either restore the latest model, or create a fresh one
+    # if there is no checkpoint available.
+    checkpoints = [checkpoint_dir + "/" + name for name in os.listdir(checkpoint_dir)]
+    if checkpoints:
+        latest_checkpoint = max(checkpoints, key=os.path.getctime)
+        print("Restoring from", latest_checkpoint)
+        return keras.models.load_model(latest_checkpoint)
+    print("Creating a new model")
+    return get_compiled_model()
+
+
+model = make_or_restore_model()
+```
+
+## Customize keras based models
+
+### Customize Layer / Model class
+- encapsulates state (weights) defined in `__init__` and transformation from inputs to outputs captured in `call()`.
+  - variables in `__init__` get tracked as layer's `weights`
+  ```
+  # check if weights are getting tracked
+  assert linear_layer.weights == [linear_layer.w, linear_layer.b]
+  # get trainable weights
+  print(linear_layer.trainable_weights)
+  # get non trainable weights
+  print(linear_layer.nontrainable_weights)
+  ```
+  - either define the weights as `tf.Variable` or by using `self.add_weight()`.
+  - non trainable weights can be defined by passing `trainable=False` to `tf.Variable` construction.
+  - use `assign_` in `call()` if need to update weights.
+  - Privileged training arg : if a layer has different behaviour in training and at inference, add an extra arg in `call()` to capture mode.
+  - Privileged mask arg : used in RNNs to mask certain time steps. Extra arg in `call()`.
+  - if defined recursively (i.e., layer inside layer), outermost layer will track weights for all wrapped layers.
+- **OPTIONAL** : Best practice is to add `build(self, input_shape)` which captures lazy weight creation upon knowing shape of inputs.
+- **NOTE** : any variable creation in `__call__` should be wrapped in `tf.init_scope`.
+
+
+### Customize `model.fit()`
+- subclass `kera.Model`
+- implement `train_step(self, data)`. Inside this, call :
+  - `self.compiled_loss(y, y_pred, regularization_losses=self.losses)` and   
+  - `self.optimizer.apply_gradients(zip(gradients, trainable_vars))`
+  - `self.compiled_metrics.update_state(y, y_pred)`
+  - Return a dict mapping metric names to current value, i.e., `return {m.name: m.result() for m in self.metrics}`
