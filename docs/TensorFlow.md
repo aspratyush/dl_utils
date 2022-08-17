@@ -1,5 +1,15 @@
 ## Debugging
 
+#### Better debugging with `tf.function`
+- eager execution is turned on by default.
+- Use `tf.config.run_functions_eagerly(True)` to verify if `Function` is working correctly.
+  - this turns off `Function`'s ability to create and run graphs
+- Always debug in Eager mode. Then decorate with `@tf.function`.
+  - Numpy and Py ops are converted to const ops.
+- Don't rely on pure Python ops (object mutations / list appends)
+- Use `tf.debugging.enable_check_numerics` and `tf.debugging.*`.
+- link: https://www.tensorflow.org/guide/function#debugging
+
 #### Device placement
 - Turn on device placement logging : `tf.debugging.set_log_device_placement(True/False)`
 - link : https://www.tensorflow.org/api_docs/python/tf/debugging/set_log_device_placement
@@ -45,27 +55,70 @@
 
 - `tf.Graph` is a data structure that contains a set of `tf.Operations` (units of compute), and `tf.Tensor` objects (units of data that flows between ops)
 - Since this is a data structure, it allows for portability across platforms.
+- It is the raw, language-agnostic, portable representation of a TensorFlow computation.
 - Graph optimization library (Grappler) : https://www.tensorflow.org/guide/graph_optimization
+- `Function` manages a cache of `ConcreteFunctions` and picks the right one for your inputs. `tf.function` wraps a Python function, returning a Function object. Tracing creates a `tf.Graph` and wraps it in a `ConcreteFunction`.
+
+#### AutoGraph
+- on by default. Converts a subset of eager Py code to graph compatible TF Ops (including `if, for, while`).
+- Control flow is easier to read if written in Py.
+- Conditionals:
+  - `if` statements are converted to `tf.cond` if condition is a Tensor.
 
 #### `tf.function`
 - `tf.function` takes a regular Py function, and returns a TF `Function`
 - top-level function will cause graph conversion for all inner functions.
+- Creates a Python independant data flow graph. Enables creating performant and portable models.
 - Process followed:
   - Trace Py code
   - convert to graph code
   - link: https://www.tensorflow.org/guide/function
 - `tf.autograph` used to convert Py code into graph code.
   - link: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/autograph/g3doc/reference/index.md
-  - `tf.autograph.to_code(py_function)` to view the converted Py code
-  - Show actual graph : `py_function.get_concrete_function(tf.constant(1)).graph.as_graph_def()`
+  - `tf.autograph.to_code(Function.python_function)` to view the converted Py code
+  - Show actual graph : `Function.get_concrete_function(tf.constant(1)).graph.as_graph_def()`
   - 1 graph per `input_signature`, and hence is polymorphic - https://www.tensorflow.org/guide/intro_to_graphs#polymorphism_one_function_many_graphs
-  - show all the graphs : `py_function.pretty_printed_concrete_signatures()`
-- Use `tf.config.run_functions_eagerly(True)` to verify if Function is working correctly.
-    - this turns off Function's ability to create and run graphs
+  - show all the generated graph types : `Function.pretty_printed_concrete_signatures()`
 - `tf.print` can be used in both Eager and Function mode. `print` will be called only once when tracing happens.
 - New Python arguments always trigger the creation of a new graph.
 - **NOTE**: Only needed operations are run during graph execution, and an error is not raised. Do not rely on an error being raised while executing a graph.
 - better performance : https://www.tensorflow.org/guide/function
+- Use `timeit` to see performance improvement:
+```
+import timeit
+conv_layer = tf.keras.layers.Conv2D(100, 3)
+@tf.function
+def conv_fn(image):
+  return conv_layer(image)
+image = tf.zeros([1, 200, 200, 100])
+print("Eager conv:", timeit.timeit(lambda: conv_layer(image), number=10))
+print("Function conv:", timeit.timeit(lambda: conv_fn(image), number=10))
+```
+
+#### Tracing
+- Optional Stage1 : `tf.function` creates a new `tf.Graph`. All TF ops are deferred, and captured by the graph. Py code runs normally.
+- Stage2 : everthing that was deferred is run.
+- Speed improvement seen by skipping 1st stage, and executing 2nd stage.
+- Upon repeatedly calling a `Function` with the same argument type, TensorFlow will skip the tracing stage and reuse a previously traced graph. Both stages invoked with new arg dtype.
+- Rules: https://www.tensorflow.org/guide/function#rules_of_tracing
+- **NOTE**: If `Function` retraces a new graph for every call, code would execute more slowly than if `tf.function` wasn't used!
+- To control tracing behaviour, pass a fixed `input_signature` with `None` shape, pass `Tensor` objects instead of Python args:
+  - `None` shape addresses variable length I/P (e.g. Transformer and Deep Dream)
+```
+@tf.function(input_signature=(tf.TensorSpec(shape=[None], dtype=tf.int32),))
+def next_collatz(x):
+  print("Tracing with", x)
+  return tf.where(x % 2 == 0, x // 2, 3 * x + 1)
+```
+- Get concrete function with the below. Python type in concrete type call is tread as a constant. 
+```
+@tf.function
+def pow(a, b):
+  return a ** b
+
+square = pow.get_concrete_function(a=tf.TensorSpec(None, tf.float32), b=2)
+print(square)
+```
 
 
 #### `tf.Module`
@@ -284,9 +337,35 @@ model = make_or_restore_model()
 
 
 ### Customize `model.fit()`
-- subclass `kera.Model`
+- link: https://www.tensorflow.org/guide/keras/customizing_what_happens_in_fit#a_first_simple_example
+- same concepts as below apply to `evaluate()`, by overriding `test_step`.
+- full example : https://www.tensorflow.org/guide/keras/customizing_what_happens_in_fit#wrapping_up_an_end-to-end_gan_example
+#### Step 1
+- subclass `keras.Model`
 - implement `train_step(self, data)`. Inside this, call :
-  - `self.compiled_loss(y, y_pred, regularization_losses=self.losses)` and   
+  - `self.compiled_loss(y, y_pred, regularization_losses=self.losses)`
+  - calculate gradients on trainable params.   
   - `self.optimizer.apply_gradients(zip(gradients, trainable_vars))`
   - `self.compiled_metrics.update_state(y, y_pred)`
   - Return a dict mapping metric names to current value, i.e., `return {m.name: m.result() for m in self.metrics}`
+
+#### Step 2 (if loss is not defined in compile)
+- have a `Metric` instance to track loss and score.
+- `train_step()` computes per step loss, updates metric states by calling `update_state()`, queries them via `result()` to be returned in a dict.
+- either call `reset_states()` manually before every epoch, or implement a metrics property which returns the metrics in use. This way a call to `fit()` will auto-call `reset_states()`.
+
+#### Step 3 : support `sample_weight` and `class_weight`
+- unpack sample_weight from data arg passed to `train_step`.
+- pass it to `compiled_loss` and `compiled_metrics`.
+
+
+### Implement custom training
+- define model. Instantiate the metric at the start of the loop.
+- For loop over epochs. For each epoch, iterate over the dataset, in batches.
+- For each batch, we open a `GradientTape()` scope, and call the model (forward pass) and compute the loss.
+- Outside the scope, retrieve the gradients of the weights of the model with regard to the loss.
+- Finally, use the optimizer to update the weights of the model based on the gradients.
+- Call `metric.update_state()` after each batch. Call `metric.result()` to display the current value of the metric.
+- Call `metric.reset_states()` to clear the state of the metric (typically at the end of an epoch).
+- link : https://www.tensorflow.org/guide/keras/writing_a_training_loop_from_scratch#end-to-end_example_a_gan_training_loop_from_scratch
+- core example : https://www.tensorflow.org/guide/core/quickstart_core
