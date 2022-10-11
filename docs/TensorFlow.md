@@ -64,6 +64,22 @@
 - Control flow is easier to read if written in Py.
 - Conditionals:
   - `if` statements are converted to `tf.cond` if condition is a Tensor.
+  - `for` and `while` are converted to `tf.while_loop`.
+    - if range is a Tensor / `tf.data.Dataset`.
+    - Python loop executes during tracing, and adds ops per iteration to the Graph.
+- Looping over Python data:
+  - wrap python data in `tf.data.Dataset`. When using `from_generator`, data is fetched from Py via `tf.py_function`,having PERFORMANCE implications, when using `from_tensor`, copy of data is bundled as a `tf.constant`, having MEMORY implications.
+  - Reading from `TFRecordDataset` `CsvDataset`, etc. is the most effective way to consume data, as TF manages async loading and prefetching, without involving Python.
+  - link: https://www.tensorflow.org/guide/data
+- Accumulation in a loop:
+  - List is a Python object. Use `tf.TensorArray`.
+- Limitations:
+  - link: https://www.tensorflow.org/guide/function#limitations
+  - executing Python side-effects. Could try wrapping them in `tf.py_function`, but it doesnt work well in distributed training.
+  - Avoid mutating Python objects that live outside the `Function`.
+  - Avoid using Python iterators. use `tf.data` from iterator patterns.
+  - `Function` must return all its outputs. Otherwise, a leak may happen.
+  - recursive `Function` is not supported.
 
 #### `tf.function`
 - `tf.function` takes a regular Py function, and returns a TF `Function`
