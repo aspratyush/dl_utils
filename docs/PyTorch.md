@@ -64,6 +64,13 @@ Save
 
 Load
 - `model.load_state_dict(torch.load(PATH))` is used to load a model.
+- add `strict=False` argument to ignore missing keys - needed for warmstarting models (e.g. : transfer learning)   
+
+Load to CPU/GPU
+- add `map_location=torch.device('cpu')` or `map_location=torch.device('cuda:0')`   
+
+Load to GPU using `to` op
+- add `model.to(torch.device('cuda'))` after loading the model.
 
 Checkpoints
 ```
@@ -75,3 +82,208 @@ torch.save({
             }, PATH)
 ```
 - This way can be used to serialize >1 models and other variables as well.
+
+
+## NN pipeline
+
+### From scratch
+```
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+def log_softmax(x):
+    return x - x.exp().sum(-1).log().unsqueeze(-1)
+
+def model(xb):
+    return log_softmax(xb @ weights + bias)
+
+def nll(input, target):
+    return -input[range(target.shape[0]), target].mean()
+
+loss_func = nll
+
+lr = 0.5  # learning rate
+epochs = 2  # how many epochs to train for
+
+for epoch in range(epochs):
+    for i in range((n - 1) // bs + 1):
+        #         set_trace()
+        start_i = i * bs
+        end_i = start_i + bs
+        xb = x_train[start_i:end_i]
+        yb = y_train[start_i:end_i]
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+
+        loss.backward()
+        with torch.no_grad():
+            weights -= weights.grad * lr
+            bias -= bias.grad * lr
+            weights.grad.zero_()
+            bias.grad.zero_()
+```
+
+### Simplify backprop and model params using `torch.nn`
+```
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+def model(xb):
+    return xb @ weights + bias
+
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+        self.bias = nn.Parameter(torch.zeros(10))
+
+    def forward(self, xb):
+        return xb @ self.weights + self.bias
+
+model = Mnist_Logistic()
+
+
+for epoch in range(epochs):
+    for i in range((n - 1) // bs + 1):
+        start_i = i * bs
+        end_i = start_i + bs
+        xb = x_train[start_i:end_i]
+        yb = y_train[start_i:end_i]
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+
+        loss.backward()
+        with torch.no_grad():
+            for p in model.parameters():
+                p -= p.grad * lr
+            model.zero_grad()
+```
+
+
+### Simplify backprop further by using `torch.optim`
+```
+def get_model():
+    model = Mnist_Logistic()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+#print(loss_func(model(xb), yb))
+
+for epoch in range(epochs):
+    for i in range((n - 1) // bs + 1):
+        start_i = i * bs
+        end_i = start_i + bs
+        xb = x_train[start_i:end_i]
+        yb = y_train[start_i:end_i]
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+
+print(loss_func(model(xb), yb))
+```
+
+### Simplify Dataloading
+```
+from torch.utils.data import DataLoader
+
+train_ds = TensorDataset(x_train, y_train)
+train_dl = DataLoader(train_ds, batch_size=bs)
+
+model, opt = get_model()
+
+for epoch in range(epochs):
+    for xb, yb in train_dl:
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+
+print(loss_func(model(xb), yb))
+```
+
+### Modularize by creating `fit()` and `get_data()`
+```
+#### loss batch ####
+def loss_batch(model, loss_func, xb, yb, opt=None):
+    loss = loss_func(model(xb), yb)
+
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+
+    return loss.item(), len(xb)
+
+#### Train ####
+import numpy as np
+
+def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            loss_batch(model, loss_func, xb, yb, opt)
+
+        model.eval()
+        with torch.no_grad():
+            losses, nums = zip(
+                *[loss_batch(model, loss_func, xb, yb) for xb, yb in valid_dl]
+            )
+        val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+
+        print(epoch, val_loss)
+
+#### get data ####
+def get_data(train_ds, valid_ds, bs):
+    return (
+        DataLoader(train_ds, batch_size=bs, shuffle=True),
+        DataLoader(valid_ds, batch_size=bs * 2),
+    )
+
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+model, opt = get_model()
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+```
+
+
+#### Using GPU
+- Shift raw tensors to device
+- Shift model to device
+
+```
+dev = torch.device(
+    "cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+def preprocess(x, y):
+    return x.view(-1, 1, 28, 28).to(dev), y.to(dev)
+
+class WrappedDataLoader:
+    def __init__(self, dl, func):
+        self.dl = dl
+        self.func = func
+
+    def __len__(self):
+        return len(self.dl)
+
+    def __iter__(self):
+        batches = iter(self.dl)
+        for b in batches:
+            yield (self.func(*b))
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+train_dl = WrappedDataLoader(train_dl, preprocess)
+valid_dl = WrappedDataLoader(valid_dl, preprocess)
+
+model.to(dev)
+opt = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+```
