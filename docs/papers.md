@@ -4,6 +4,36 @@
 * visualization : https://pytorch.org/hub/pytorch_vision_resnet/
 * code : https://github.com/pytorch/vision/blob/015378434c1e4be778b2d65eb86f227db20bc8bf/torchvision/models/resnet.py
 
+## ImageNet pretraining
+* paper : https://openaccess.thecvf.com/content_ICCV_2019/papers/He_Rethinking_ImageNet_Pre-Training_ICCV_2019_paper.pdf
+* summary:
+   * ImageNet pre-training :
+      * speeds up convergence, especially early on in training, but training from random initialization can catch up after training for a duration that is roughly comparable to the total ImageNet pre-training plus fine-tuning computation.
+      * does not automatically give better regularization.
+      * shows no benefit when the target tasks/metrics are more sensitive to spatially well localized predictions.
+   * Normalization:
+      * normalized parameter initialization and activation normalization layers. BN is a type of activation normalization.
+      * BN (Batch normalization) : object detectors adopt batch stats of pretraining given batch size limitation due to need for high resolution data.
+   * Better BNs:
+      * Group Normalization (GN) - performs computation that is independent of the batch dimension.
+      * Synchronized Batch Normalization (SyncBN) - batch statistics computed across multiple devices (GPUs).
+      * NOTE : [using appropriately normalized initialization](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf), we can train object detectors with VGG nets from random initialization without BN or GN.
+   * Convergence:
+      * Typical ImageNet pre-training involves over one million images iterated for one hundred epochs.
+      * **a sufficiently large number of total samples (arguably in terms of pixels) are required for the models trained from random initialization to converge well**.
+   * Experimental setup:
+      * Arch : mask RCNN with ResNet / ResNeXt plus FPN backbone with GN / SyncBN.
+      * Learning rate scheduling:
+         * Following the strategy in the 2×schedule (or 180k iterations) of [Detectron](https://github.com/facebookresearch/detectron), we always reduce the learning rate by 10× in the last 60k and last 20k iterations respectively, irrespective of the number of iterations being performed.
+         * **training longer for the first (large) learning rate is useful, but training for longer on small learning rates often leads to overfitting**.
+      * Hyperparams:
+         * same as Detectron, i.e., initial `lr = 0.02` [with a linear warm-up](https://research.facebook.com/publications/accurate-large-minibatch-sgd-training-imagenet-in-1-hour/), `weight_decay = 0.0001`, `momentum = 0.9`, `batch_size = 16`.
+   * Observations:
+      * Models trained from scratch can catch up with their fine-tuning counterparts, if a 5× or 6× schedule is used.
+      * Stronger data augmentation requires more iterations to converge. We increase the schedule to 9× when training from scratch, and to 6× when from ImageNet pre-training.
+      * Shallower models like VGG-16 can be trained from scratch without activation normalization as long as a proper initialization normalization is used. We adopt standard hyper-parameters with `lr = 0.02`, `lr_decay = 0.1`, and `weight_decay = 0.0001`. [MSRA initialization](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf) is used.
+      * **models trained from scratch with substantially less data (e.g., ∼1/10 of COCO) are no worse than their counterparts that are pre-trained**!
+
 ## Action Recognition
 ### 1. TSN (Temporal Segment Network)
 * paper : https://arxiv.org/pdf/1608.00859.pdf
